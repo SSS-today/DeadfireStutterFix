@@ -8,7 +8,7 @@ A small BepInEx plugin that removes the combat stutters in **Pillars of Eternity
 
 [Results](#results) · [Check it on your PC](#check-it-on-your-pc-before--after) · [Install](#install) · [What it does](#what-it-does) · [Settings](#settings) · [Uninstall](#uninstall) · [Is it safe?](#is-it-safe) · [Known limits](#known-limits) · [FAQ](#faq) · [Credits](#credits-and-licence)
 
-**Video:** [stock game vs DXVK + Stutter Fix, same fight (YouTube)](https://youtu.be/9mcYuJI-kjk)
+**Videos:** stock game vs DXVK + Stutter Fix, same fight: [full-frame version](https://youtu.be/9mcYuJI-kjk) · [split-screen version](https://youtu.be/HP_sYt9FiNM) (YouTube)
 
 ## Results
 
