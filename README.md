@@ -8,7 +8,7 @@ A small BepInEx plugin that removes the combat stutters in **Pillars of Eternity
 
 [Results](#results) · [Check it on your PC](#check-it-on-your-pc-before--after) · [Install](#install) · [What it does](#what-it-does) · [Settings](#settings) · [Uninstall](#uninstall) · [Is it safe?](#is-it-safe) · [Known limits](#known-limits) · [FAQ](#faq) · [Credits](#credits-and-licence)
 
-<!-- VIDEO: add the YouTube link here after upload -->
+**Video:** [stock game vs DXVK + Stutter Fix, same fight (YouTube)](https://youtu.be/9mcYuJI-kjk)
 
 ## Results
 
@@ -41,11 +41,12 @@ To test one fix at a time, switch the others off in the config file (see [Settin
 ## Install
 
 1. **BepInEx 5** (the Mono version for Windows x64): download the `win_x64` zip from the [BepInEx 5.4.23.5 release](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.5). Extract it into the game folder, next to `PillarsOfEternityII.exe`. Steam: right-click the game → Manage → Browse local files.
-2. **Start the game once** and quit at the main menu. BepInEx creates its folders.
-3. Download `DeadfireStutterFix.dll` from [Releases](../../releases) and put it in `BepInEx\plugins\`.
-4. Play. `BepInEx\LogOutput.log` should contain a line starting with `Deadfire Stutter Fix 1.0.0`.
+2. **DXVK** (required, see below): download it from the [DXVK releases](https://github.com/doitsujin/dxvk/releases) and copy `d3d11.dll` and `dxgi.dll` from its `x64` folder into the game folder.
+3. **Start the game once** and quit at the main menu. BepInEx creates its folders.
+4. Download `DeadfireStutterFix.dll` from [Releases](../../releases) and put it in `BepInEx\plugins\`.
+5. Play. `BepInEx\LogOutput.log` should contain a line starting with `Deadfire Stutter Fix 1.0.0`.
 
-**Optional, what the test PC uses: DXVK.** [DXVK](https://github.com/doitsujin/dxvk/releases) runs the game's DirectX 11 on Vulkan. To use it, copy `d3d11.dll` and `dxgi.dll` from the `x64` folder of the DXVK release into the game folder. To undo, delete those two files. DXVK needs a GPU and driver with Vulkan support. The fix works without DXVK, but the DX11 + fix combination **hasn't been measured** (see [Known limits](#known-limits)).
+**Why DXVK is required.** DXVK runs the game's DirectX 11 on Vulkan. The fix is meant to be used together with it: on plain DX11 the fix alone was tested and fights were still not smooth (see [Known limits](#known-limits)). Every "with fix" result above was measured with DXVK. DXVK needs a GPU and driver with Vulkan support. To undo it, delete `d3d11.dll` and `dxgi.dll` from the game folder.
 
 **Updating:** replace the dll. Your settings stay in the config file.
 
@@ -96,7 +97,7 @@ Delete `BepInEx\plugins\DeadfireStutterFix.dll` (and `BepInEx\config\alex.deadfi
 Here's what is not fixed and what we don't know:
 
 - **One PC.** Every result is from one PC, Steam build v5.0.0.0040, Windows. The GOG version, the Steam Deck and Linux/Proton are untested.
-- **DXVK's share is unmeasured.** The headline comparisons are stock DX11 against DXVK + fix. DX11 + fix wasn't measured, and DXVK alone wasn't measured on the ship fight either. Our best guess is that DXVK lowers CPU overhead per frame. That guess is unmeasured. DX11 and DXVK both compile each shader once, and once DXVK's cache is warm, that cost is gone too.
+- **Use it with DXVK.** The headline comparisons are stock DX11 against DXVK + fix. DX11 + fix was tried on the test PC and fights were still not smooth (judged by feel, not counted). DXVK alone wasn't measured on the ship fight, so how the gain splits between DXVK and the fix isn't known. Our best guess is that DXVK lowers CPU overhead per frame. That guess is unmeasured. DX11 and DXVK both compile each shader once, and once DXVK's cache is warm, that cost is gone too.
 - **Small first-fight stutters remain**, about once per launch. Here's what was seen in logs (plugin-side timings, which read about 10–30 ms higher than what reaches the screen):
   - a weather change (`WeatherManager`, 30–64 ms);
   - the first AI decision of a fight (24–47 ms);
@@ -111,7 +112,7 @@ Here's what is not fixed and what we don't know:
 
 **Does it change gameplay?** No. Corpses can't be looted during combat in the stock game, and they become lootable shortly after combat ends. Tooltips of living characters are never touched.
 
-**Do I need DXVK?** No, but every "with fix" number above was measured with DXVK.
+**Do I need DXVK?** Yes. On plain DX11 the fix alone wasn't smooth in testing, and every "with fix" number above was measured with DXVK.
 
 **Why is there a short hitch while the main menu loads?** The icon prewarm runs at the first load where the game's icon manager exists. On the test PC that is the main menu load, which takes ~65 ms once, during loading.
 
@@ -142,7 +143,7 @@ If the game isn't in the default Steam folder, add `-p:GameDir="<your game folde
 
 - Researched and built by **Claude** (Anthropic), directed and tested by **SSS**.
 - Inspired by **LTSharpe**'s [Oblivion Remastered Performance Fix](https://github.com/LTSharpe/OblivionRemasteredPerformanceFix), another fix built with Claude Code, which showed the format.
-- Uses [BepInEx](https://github.com/BepInEx/BepInEx) and [HarmonyX](https://github.com/BepInEx/HarmonyX). Optional [DXVK](https://github.com/doitsujin/dxvk).
+- Uses [BepInEx](https://github.com/BepInEx/BepInEx) and [HarmonyX](https://github.com/BepInEx/HarmonyX). [DXVK](https://github.com/doitsujin/dxvk).
 - MIT licence, see [LICENSE](LICENSE).
 
 Not affiliated with or endorsed by Obsidian Entertainment or Unity Technologies.
