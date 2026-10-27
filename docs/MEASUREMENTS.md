@@ -38,6 +38,8 @@ This is the test log behind the [README](../README.md) results. It covers how ea
 
 **v1.14 timing change.** The forced collection used to run 0.5 s after the last scene load. On quick same-map transitions (going up a floor in a building) the loading screen was already gone by then, so the collection landed after the player could move again. SSS saw it on every such transition after the GC fix and never before it. It now runs 0.05 s after the scene load. That is about 0.45 s earlier, not more: the scene load event is the earliest safe point.
 
+**1.0.1 save timing change.** Every save goes through `SaveLoadManager.SaveGame` (checked in the game code: autosave, quicksave, manual save and the story saves all call it). It does its work on the main thread in one frame, then a background thread (`ZipAndSaveFileToDiskThread`) zips the files to disk. 1.0.0 collected 0.2 s after that thread finished. In a logged sea trip, an autosave frame took 364 ms *(probe)*, and the collection after it added a separate 108 ms frame 0.3 s later. Area transitions always autosave, so this happened on every transition. In 1.0.1 the collection runs at the end of `SaveGame`, inside the save frame. Test (SSS, several saves): one stutter per save instead of two; the log shows each collection at 101 ms inside the save frame.
+
 ## 2. Corpse colliders (dev v1.4 and v1.5)
 
 **Cause.** After a death animation, the game runs `GameUtilities.CreateMeshForCollider` on the corpse. It bakes the skinned mesh and cooks a `MeshCollider` so the corpse can be clicked for looting. It took **22–44 ms per corpse** on the main thread, mid-fight. Corpses cannot be looted during combat.

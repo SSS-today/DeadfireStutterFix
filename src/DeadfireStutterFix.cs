@@ -7,8 +7,9 @@
 // 1) [Heap] Garbage collector. Unity 5.6's Mono GC stops the game for a full collection, and in this game
 //    a collection takes ~100-170 ms. The fix grows the managed heap once at startup (PreallocateMB, the
 //    "large heap" strategy from the Unity 5.6 manual) so collections are rare, and forces one collection
-//    right after each scene load (behind the loading screen) and right after a save is written, so the
-//    heap starts every area with free room instead of collecting in the middle of a fight.
+//    right after each scene load (behind the loading screen) and after every save, so the heap starts every
+//    area with free room instead of collecting in the middle of a fight. 1.0.1: by default the save collection
+//    runs inside the game's own save frame (CollectInSaveFrame), which is already a hitch, instead of 0.2 s later.
 //
 // 2) [Corpses] Corpse click-colliders. After an enemy's death animation the game runs the coroutine
 //    GameUtilities.CreateMeshForCollider on the corpse: it bakes the skinned mesh and cooks a MeshCollider
@@ -39,7 +40,7 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-[BepInPlugin("alex.deadfirestutterfix", "Deadfire Stutter Fix", "1.0.0")]
+[BepInPlugin("alex.deadfirestutterfix", "Deadfire Stutter Fix", "1.0.1")]
 [BepInIncompatibility("alex.gcprobe")]   // the development build (GC Probe) contains the same fixes: never run both
 public class DeadfireStutterFix : BaseUnityPlugin
 {
@@ -49,6 +50,9 @@ public class DeadfireStutterFix : BaseUnityPlugin
     private ConfigEntry<int> preallocMb;
     private ConfigEntry<bool> collectOnLoad;
     private ConfigEntry<bool> collectOnSave;
+    private ConfigEntry<bool> collectInSaveFrame;
+    private static int mainThreadId;
+    private static DeadfireStutterFix instance;
     private ConfigEntry<float> collectDelay;
     private ConfigEntry<bool> deferColliders;
     private ConfigEntry<int> spacingFramesCfg;
@@ -80,7 +84,10 @@ public class DeadfireStutterFix : BaseUnityPlugin
             "Seconds after a scene load before that collection. Each further scene load restarts the wait. " +
             "Keep it short: on quick transitions the loading screen is gone soon after the scene load.");
         collectOnSave = Config.Bind("Heap", "CollectOnSave", true,
-            "Force one garbage collection 0.2 s after a save game has been written to disk.");
+            "Force one garbage collection after every save (autosave, quicksave and manual save).");
+        collectInSaveFrame = Config.Bind("Heap", "CollectInSaveFrame", true,
+            "true = collect in the same frame as the game's own save work (that frame is already a hitch), so the " +
+            "collection adds no separate hitch. false = collect 0.2 s after the save file has been written (1.0.0 behaviour).");
         deferColliders = Config.Bind("Corpses", "DeferColliders", true,
             "Build corpse click-colliders only after combat ends, one corpse at a time.");
         spacingFramesCfg = Config.Bind("Corpses", "SpacingFrames", 10,
@@ -99,15 +106,17 @@ public class DeadfireStutterFix : BaseUnityPlugin
         spacingFrames = Math.Max(1, spacingFramesCfg.Value);
         delayAfterCombatFrames = Math.Max(0, delayAfterCombatCfg.Value);
 
+        instance = this;
+        mainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
         SceneManager.sceneLoaded += OnSceneLoaded;
 
         Harmony harmony = new Harmony("alex.deadfirestutterfix");
         string save = collectOnSave.Value ? PatchSave(harmony) : "off";
         string corpses = deferColliders.Value ? PatchCorpseColliders(harmony) : "off";
 
-        Logger.LogInfo("Deadfire Stutter Fix 1.0.0 | PreallocateMB=" + preallocMb.Value +
+        Logger.LogInfo("Deadfire Stutter Fix 1.0.1 | PreallocateMB=" + preallocMb.Value +
                        " CollectOnLoad=" + collectOnLoad.Value + " CollectDelaySeconds=" + collectDelay.Value +
-                       " CollectOnSave=" + save + " DeferColliders=" + corpses +
+                       " CollectOnSave=" + save + " CollectInSaveFrame=" + collectInSaveFrame.Value + " DeferColliders=" + corpses +
                        " SpacingFrames=" + spacingFrames + " DelayAfterCombatFrames=" + delayAfterCombatFrames +
                        " CleanCombatTooltips=" + cleanTooltips.Value +
                        " PrewarmIconAtlases=" + prewarmIcons.Value + " PrewarmAtlasNames=" + prewarmAtlasNames.Value);
@@ -136,6 +145,26 @@ public class DeadfireStutterFix : BaseUnityPlugin
 
     private string PatchSave(Harmony harmony)
     {
+        if (collectInSaveFrame.Value)
+        {
+            // The game saves in two parts (checked in Assembly-CSharp): SaveLoadManager.SaveGame does the heavy work on the
+            // main thread in one frame (autosave, quicksave and manual save all call it), then starts a background thread
+            // (ZipAndSaveFileToDiskThread) that zips the files to disk. Collecting right at the end of SaveGame puts the
+            // collection into that same, already slow frame instead of a new hitch 0.2 s later.
+            int hooked = 0;
+            Type mgr = AccessTools.TypeByName("Game.SaveLoadManager");
+            if (mgr != null)
+                foreach (MethodInfo m in AccessTools.GetDeclaredMethods(mgr))
+                {
+                    if (m.Name != "SaveGame" || m.IsAbstract || m.IsGenericMethodDefinition) continue;
+                    string post = m.ReturnType == typeof(bool) ? "OnSaveGameBool" : "OnSaveGame";
+                    try { harmony.Patch(m, postfix: new HarmonyMethod(typeof(DeadfireStutterFix), post)); hooked++; }
+                    catch (Exception e) { Logger.LogError("Could not hook SaveGame: " + e); }
+                }
+            if (hooked > 0) return "on (in save frame, " + hooked + " hook" + (hooked > 1 ? "s" : "") + ")";
+            Logger.LogWarning("SaveGame not found; falling back to collecting after the save file is written.");
+        }
+
         MethodInfo target = AccessTools.Method("Game.SaveLoadManager:ZipAndSaveFileToDiskThread");
         if (target == null)
         {
@@ -145,13 +174,34 @@ public class DeadfireStutterFix : BaseUnityPlugin
         try
         {
             harmony.Patch(target, postfix: new HarmonyMethod(typeof(DeadfireStutterFix), "OnSaveWritten"));
-            return "on";
+            return "on (0.2 s after write)";
         }
         catch (Exception e)
         {
             Logger.LogError("Could not hook the save method: " + e);
             return "off (hook failed)";
         }
+    }
+
+    // Harmony postfixes on SaveLoadManager.SaveGame (main thread, same frame as the game's save work).
+    private static void OnSaveGameBool(bool __result)
+    {
+        if (__result) CollectNow();
+    }
+
+    private static void OnSaveGame()
+    {
+        CollectNow();
+    }
+
+    private static void CollectNow()
+    {
+        if (System.Threading.Thread.CurrentThread.ManagedThreadId != mainThreadId) { saveFinished = true; return; }   // not expected; use the delayed path
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        GC.Collect();
+        double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+        DeadfireStutterFix p = instance;
+        if (p != null) p.Logger.LogInfo("Save: collected in the save frame in " + ms.ToString("F0") + " ms (frame " + Time.frameCount + ").");
     }
 
     // Harmony postfix. Runs on the game's save thread: no Unity calls here.

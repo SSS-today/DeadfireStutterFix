@@ -44,7 +44,7 @@ To test one fix at a time, switch the others off in the config file (see [Settin
 2. **DXVK** (required, see below): download it from the [DXVK releases](https://github.com/doitsujin/dxvk/releases) and copy `d3d11.dll` and `dxgi.dll` from its `x64` folder into the game folder.
 3. **Start the game once** and quit at the main menu. BepInEx creates its folders.
 4. Download `DeadfireStutterFix.dll` from [Releases](../../releases) and put it in `BepInEx\plugins\`.
-5. Play. `BepInEx\LogOutput.log` should contain a line starting with `Deadfire Stutter Fix 1.0.0`.
+5. Play. `BepInEx\LogOutput.log` should contain a line starting with `Deadfire Stutter Fix 1.0.1`.
 
 **Why DXVK is required.** DXVK runs the game's DirectX 11 on Vulkan. The fix is meant to be used together with it: on plain DX11 the fix alone was tested and fights were still not smooth (see [Known limits](#known-limits)). Every "with fix" result above was measured with DXVK. DXVK needs a GPU and driver with Vulkan support. To undo it, delete `d3d11.dll` and `dxgi.dll` from the game folder.
 
@@ -56,12 +56,14 @@ The game runs on Unity 5.6 with an old Mono runtime. Every stutter this plugin f
 
 | Fix | What the game does | What the fix does |
 |---|---|---|
-| **Garbage collector** | Unity 5.6's Mono collector freezes the game for a full collection. With this game's heap, a collection takes **~100–170 ms**, and it can start in the middle of a fight. | Grows the managed heap once at startup (+1 GB, the "large heap" approach from Unity's own manual) so collections are rare. Forces one collection right after every area load (behind the loading screen) and right after every save. |
+| **Garbage collector** | Unity 5.6's Mono collector freezes the game for a full collection. With this game's heap, a collection takes **~100–170 ms**, and it can start in the middle of a fight. | Grows the managed heap once at startup (+1 GB, the "large heap" approach from Unity's own manual) so collections are rare. Forces one collection right after every area load (behind the loading screen) and inside every save's own frame. |
 | **Corpse colliders** | When an enemy's death animation ends, the game bakes the body's mesh and builds the collider that makes the corpse clickable for looting: **22–44 ms per corpse**, in the middle of the fight. | Corpses can't be looted during combat anyway, so the fix waits until combat is over, then builds them one at a time (one per 10 frames, starting 30 frames after combat ends). |
 | **Combat tooltip cleanup** | On every reload, the floating combat tooltips of the old characters (**~19 per reload**) are never given back. They stay active and are updated every frame, so each reload makes fights a bit heavier. | After each area load, gives every tooltip whose character no longer exists back to the game's own tooltip pool, through the game's own `Remove()`. It runs inside the loading screen (15–18 ms there). |
 | **Icon atlas prewarm** | The first time in a launch that a character's action icon shows an ability, the game builds a circle-clipped copy of the whole spell icon atlas: one **~70–100 ms** freeze in your first fight. The first item use does the same with the item icon atlas. | Makes that same call once, behind a loading screen. The game caches the result for the whole launch, so the fight never pays for it. |
 
 Collector timing details: the forced collection runs **0.05 s** after the last scene load of an area. An earlier version waited 0.5 s, and on quick transitions inside a map (for example going up a floor in a building) the loading screen was already gone by then, so the collection landed in gameplay.
+
+Saves (autosaves on every area transition, quicksaves, manual saves) already cost one slow frame: the game does its save work on the main thread in a single frame, then zips the files on a background thread. 1.0.0 collected 0.2 s after the file was written, which made a second hitch after each save. Since 1.0.1 the collection runs inside the save frame itself (`CollectInSaveFrame`), so a save gives one hitch instead of two.
 
 ## Settings
 
@@ -72,7 +74,8 @@ Collector timing details: the forced collection runs **0.05 s** after the last s
 | Heap | `PreallocateMB` | 1024 | Heap growth at startup. 0 = off. |
 | Heap | `CollectOnLoad` | true | Collect right after an area load. |
 | Heap | `CollectDelaySeconds` | 0.05 | Wait after the last scene load before collecting. |
-| Heap | `CollectOnSave` | true | Collect 0.2 s after a save is written. |
+| Heap | `CollectOnSave` | true | Collect after every save. |
+| Heap | `CollectInSaveFrame` | true | Collect inside the save's own frame (one hitch per save). false = 0.2 s after the file is written, as in 1.0.0. |
 | Corpses | `DeferColliders` | true | Build corpse colliders only after combat. |
 | Corpses | `SpacingFrames` | 10 | Frames between two corpse builds. |
 | Corpses | `DelayAfterCombatFrames` | 30 | Frames after combat before the first one. |
@@ -86,7 +89,7 @@ Delete `BepInEx\plugins\DeadfireStutterFix.dll` (and `BepInEx\config\alex.deadfi
 
 ## Is it safe?
 
-- **Changes are in memory only.** Harmony hooks two game methods (the save writer and the corpse-collider coroutine) while the game runs. Nothing on disk is patched.
+- **Changes are in memory only.** Harmony hooks two game methods (`SaveLoadManager.SaveGame` and the corpse-collider coroutine) while the game runs. Nothing on disk is patched.
 - **It writes nothing besides BepInEx's config file and log.** It makes no network connections.
 - **Saves are untouched.** Nothing the plugin does is stored in a save, and removing it leaves your saves exactly as they would be without it.
 - **It fails safe.** If a game method it needs isn't found (for example after a game update), that one fix switches itself off and writes a warning to `LogOutput.log`. The game then runs as stock.

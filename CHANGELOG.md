@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+
+**Saves: one hitch instead of two**
+- New setting `[Heap] CollectInSaveFrame` (default true). The collection after a save now runs at the end of `SaveLoadManager.SaveGame`, inside the frame where the game does its own save work, instead of 0.2 s after the save file is written.
+- Every area transition autosaves, so 1.0.0 gave a second short hitch (~100 ms) after each transition and each quicksave. Tested by SSS: several saves, one stutter each instead of two; the log shows each collection at 101 ms inside the save frame.
+- `CollectInSaveFrame = false` restores the 1.0.0 behaviour.
+
 ## 1.0.0 (first public release)
 
 This release contains the fixes from development build v1.14, without the profilers and logging.
