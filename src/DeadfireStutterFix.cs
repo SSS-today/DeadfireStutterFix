@@ -28,6 +28,9 @@
 //    item), the game builds a circle-clipped copy of the whole icon atlas (UIAtlasManager.
 //    GetCircleClippedAtlas -> UIAtlas.set_spriteMaterial): one ~70-100 ms frame in the first fight. The game
 //    keeps that copy for the rest of the launch. The fix makes the same call once, behind a loading screen.
+//
+// [General] ShowActiveMessage (1.0.2): one line "Deadfire Stutter Fix 1.0.2 active." in the game's combat log after the
+// first area load of a launch, so players can see the fix is running.
 
 using System;
 using System.Collections;
@@ -40,7 +43,7 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-[BepInPlugin("alex.deadfirestutterfix", "Deadfire Stutter Fix", "1.0.1")]
+[BepInPlugin("alex.deadfirestutterfix", "Deadfire Stutter Fix", "1.0.2")]
 [BepInIncompatibility("alex.gcprobe")]   // the development build (GC Probe) contains the same fixes: never run both
 public class DeadfireStutterFix : BaseUnityPlugin
 {
@@ -66,6 +69,8 @@ public class DeadfireStutterFix : BaseUnityPlugin
     private bool afterLoadPending;
     private float afterLoadAt;
     private bool prewarmDone;
+    private ConfigEntry<bool> showActiveMessage;
+    private bool announced;
 
     // Corpse-collider state (main thread only).
     private static Func<bool> inCombat;
@@ -100,6 +105,9 @@ public class DeadfireStutterFix : BaseUnityPlugin
         prewarmIcons = Config.Bind("Fixes", "PrewarmIconAtlases", true,
             "Behind a loading screen, build the circle-clipped icon atlases the game would otherwise build in the " +
             "first fight of a launch (one ~70-100 ms stutter). Once per launch.");
+        showActiveMessage = Config.Bind("General", "ShowActiveMessage", true,
+            "Write one line (\"Deadfire Stutter Fix 1.0.2 active.\") to the game's combat log after the first area load, " +
+            "so players can see that the fix is installed and running. Once per launch.");
         prewarmAtlasNames = Config.Bind("Fixes", "PrewarmAtlasNames", "SpellAbilityIcons,ItemIcons",
             "Comma-separated UIAtlas names to pre-build circle-clipped copies of.");
 
@@ -114,7 +122,7 @@ public class DeadfireStutterFix : BaseUnityPlugin
         string save = collectOnSave.Value ? PatchSave(harmony) : "off";
         string corpses = deferColliders.Value ? PatchCorpseColliders(harmony) : "off";
 
-        Logger.LogInfo("Deadfire Stutter Fix 1.0.1 | PreallocateMB=" + preallocMb.Value +
+        Logger.LogInfo("Deadfire Stutter Fix 1.0.2 | PreallocateMB=" + preallocMb.Value +
                        " CollectOnLoad=" + collectOnLoad.Value + " CollectDelaySeconds=" + collectDelay.Value +
                        " CollectOnSave=" + save + " CollectInSaveFrame=" + collectInSaveFrame.Value + " DeferColliders=" + corpses +
                        " SpacingFrames=" + spacingFrames + " DelayAfterCombatFrames=" + delayAfterCombatFrames +
@@ -219,7 +227,7 @@ public class DeadfireStutterFix : BaseUnityPlugin
             collectPending = true;
             collectAt = now + collectDelay.Value;
         }
-        if (cleanTooltips.Value || (prewarmIcons.Value && !prewarmDone))
+        if (cleanTooltips.Value || (prewarmIcons.Value && !prewarmDone) || (showActiveMessage.Value && !announced))
         {
             // Tooltip cleanup and icon prewarm run right after the forced collection, still behind the loading screen.
             afterLoadPending = true;
@@ -260,7 +268,36 @@ public class DeadfireStutterFix : BaseUnityPlugin
                 try { RunPrewarm(); }
                 catch (Exception e) { prewarmDone = true; Logger.LogWarning("Icon prewarm failed: " + e.Message); }
             }
+            if (showActiveMessage.Value && !announced)
+            {
+                try { Announce(); }
+                catch (Exception e) { announced = true; Logger.LogWarning("Active message failed: " + e.Message); }
+            }
         }
+    }
+
+    // ---- "Fix is active" line in the game's combat log -----------------------------------------
+    // Uses the game's own static Game.Console.AddMessage(string). Only once a party exists (GameState.PlayerCharacter),
+    // i.e. after loading a save or starting a game, not at the main menu.
+    private void Announce()
+    {
+        Type gs = AccessTools.TypeByName("Game.GameState");
+        Type console = AccessTools.TypeByName("Game.Console");
+        FieldInfo pc = gs != null ? AccessTools.Field(gs, "PlayerCharacter") : null;
+        MethodInfo add = null;
+        if (console != null)
+            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(console))
+            {
+                if (m.Name != "AddMessage" || !m.IsStatic) continue;
+                ParameterInfo[] ps = m.GetParameters();
+                if (ps.Length == 1 && ps[0].ParameterType == typeof(string)) { add = m; break; }
+            }
+        if (pc == null || add == null) { announced = true; Logger.LogWarning("Active message: game members not found; off."); return; }
+        UnityEngine.Object player = pc.GetValue(null) as UnityEngine.Object;
+        if (player == null) return;                                       // no party yet (main menu): try after the next load
+        announced = true;
+        add.Invoke(null, new object[] { "Deadfire Stutter Fix 1.0.2 active." });
+        Logger.LogInfo("Active message written to the combat log.");
     }
 
     // ---- 2) Corpse click-colliders --------------------------------------------------------------
