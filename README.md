@@ -12,7 +12,7 @@ A small BepInEx plugin that removes the combat stutters in **Pillars of Eternity
 
 ## Results
 
-All numbers come from SSS's PC (setup below). A **stutter** here means a frame that took longer than **20 ms** to reach the screen, read from RivaTuner's frametime data. Every number below is a measurement. Anything that wasn't measured is marked as such.
+All numbers come from SSS's PC (setup below). A **stutter** here means a frame that took longer than **20 ms** to reach the screen, read from RivaTuner's frametime data. Every number below is a measurement.
 
 | Test | Without the fix | With the fix |
 |---|---|---|
@@ -22,7 +22,7 @@ All numbers come from SSS's PC (setup below). A **stutter** here means a frame t
 | Ship battle reloaded over and over in one session | climbing: 5, 2, 0, 1, 1, 4, 0, 1, 5, 6, **18** stutters per attempt (without the tooltip cleanup) | attempts 2–17: **3 frames over 20 ms in total**, none over 30 ms |
 | Leaked combat tooltips after 11 reloads | 19 → **188** live tooltips, all updated every frame | **flat**, cleaned at every load |
 
-<sub>Test PC: Ryzen 7 9800X3D (SMT off) · Radeon RX 9070 XT · 16 GB DDR5-6000 · 3840×2160, VRR, frame rate capped at 60 fps with RTSS · BepInEx 5.4.23.5 · DXVK 3.1.1 · Steam build v5.0.0.0040. All tests ran at the 60 fps cap; there's no uncapped data. The video and "original test fight" comparisons are stock DX11 versus DXVK + fix, so DXVK's own share in them isn't separated out (see [Known limits](#known-limits)).</sub>
+<sub>Test PC: Ryzen 7 9800X3D (SMT off) · Radeon RX 9070 XT · 16 GB DDR5-6000 · 3840×2160, VRR, frame rate capped at 60 fps with RTSS · BepInEx 5.4.23.5 · DXVK 3.1.1 · Steam build v5.0.0.0040. All tests ran at a 60 fps cap. The video and "original test fight" comparisons are stock DX11 versus DXVK + fix. What DXVK does on its own is shown under [Why DXVK is required](#why-dxvk-is-required).</sub>
 
 The full test log is in **[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)**. For every fix it has what the frame was doing (Harmony timings of the game's own methods, plus one PIX capture), which run showed it, and the before/after numbers.
 
@@ -46,7 +46,22 @@ To test one fix at a time, switch the others off in the config file (see [Settin
 4. Download `DeadfireStutterFix.dll` from [Releases](../../releases) and put it in `BepInEx\plugins\`.
 5. Play. `BepInEx\LogOutput.log` should contain a line starting with `Deadfire Stutter Fix 1.0.1`.
 
-**Why DXVK is required.** DXVK runs the game's DirectX 11 on Vulkan. The fix is meant to be used together with it: on plain DX11 the fix alone was tested and fights were still not smooth (see [Known limits](#known-limits)). Every "with fix" result above was measured with DXVK. DXVK needs a GPU and driver with Vulkan support. To undo it, delete `d3d11.dll` and `dxgi.dll` from the game folder.
+### Why DXVK is required
+
+DXVK runs the game's DirectX 11 on Vulkan. DXVK and this fix solve different problems, and you need both. Measured in the same battle, before the fix existed:
+
+| Same battle, no fix | Stock DX11 | DXVK |
+|---|---|---|
+| Readings over 20 ms | **42** of 136 | **17** of 134 |
+| Freezes over 150 ms | 0 | **4** |
+
+<sub>MSI Afterburner, 5 recordings per API, one reading per second.</sub>
+
+- **DXVK** removed about 60% of the hitches.
+- **The 4 big freezes** left on DXVK (153–159 ms) were the garbage collector, which this fix removes.
+- **DXVK + fix** together: **0** stutters in the video fight. The fix on plain DX11 was also tried and fights were still not smooth.
+
+DXVK needs a GPU and driver with Vulkan support. To undo it, delete `d3d11.dll` and `dxgi.dll` from the game folder.
 
 **Updating:** replace the dll. Your settings stay in the config file.
 
@@ -97,10 +112,9 @@ Delete `BepInEx\plugins\DeadfireStutterFix.dll` (and `BepInEx\config\alex.deadfi
 
 ## Known limits
 
-Here's what is not fixed and what we don't know:
+What the fix doesn't cover:
 
 - **One PC.** Every result is from one PC, Steam build v5.0.0.0040, Windows. The GOG version, the Steam Deck and Linux/Proton are untested.
-- **Use it with DXVK.** The headline comparisons are stock DX11 against DXVK + fix. DX11 + fix was tried on the test PC and fights were still not smooth (judged by feel, not counted). DXVK alone wasn't measured on the ship fight, so how the gain splits between DXVK and the fix isn't known. Our best guess is that DXVK lowers CPU overhead per frame. That guess is unmeasured. DX11 and DXVK both compile each shader once, and once DXVK's cache is warm, that cost is gone too.
 - **Small first-fight stutters remain**, about once per launch. Here's what was seen in logs (plugin-side timings, which read about 10–30 ms higher than what reaches the screen):
   - a weather change (`WeatherManager`, 30–64 ms);
   - the first AI decision of a fight (24–47 ms);
@@ -115,7 +129,7 @@ Here's what is not fixed and what we don't know:
 
 **Does it change gameplay?** No. Corpses can't be looted during combat in the stock game, and they become lootable shortly after combat ends. Tooltips of living characters are never touched.
 
-**Do I need DXVK?** Yes. On plain DX11 the fix alone wasn't smooth in testing, and every "with fix" number above was measured with DXVK.
+**Do I need DXVK?** Yes. DXVK removes most of the small hitches and the fix removes the big freezes; see [Why DXVK is required](#why-dxvk-is-required).
 
 **Why is there a short hitch while the main menu loads?** The icon prewarm runs at the first load where the game's icon manager exists. On the test PC that is the main menu load, which takes ~65 ms once, during loading.
 
