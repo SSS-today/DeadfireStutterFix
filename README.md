@@ -37,14 +37,14 @@ The full test log is in **[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)**. For ev
 
 ### Why DXVK is required
 
-DXVK runs the game's DirectX 11 on Vulkan. DXVK and this fix solve different problems, and you need both. Measured in the same battle, before the fix existed:
+DXVK runs the game's DirectX 11 on Vulkan. DXVK and this fix solve different problems, and you need both. Measured in battle tests:
 
-| Same battle, no fix | Stock DX11 | DXVK |
-|---|---|---|
-| Stutters over 20 ms | **42** | **17** |
-| Freezes over 150 ms | 0 | **4** |
+| Battle test | Stock DX11 | DXVK | DXVK + fix |
+|---|---|---|---|
+| Stutters over 20 ms | **42** | **17** | **0** |
+| Freezes over 150 ms | 0 | **4** | **0** |
 
-<sub>MSI Afterburner, 5 recordings per API, one reading per second.</sub>
+<sub>Stock DX11 and DXVK: the same battle before the fix existed, MSI Afterburner, 5 recordings each, one reading per second. DXVK + fix: the fix's test fights and the video fight.</sub>
 
 - **DXVK** removed about 60% of the hitches.
 - **The 4 big freezes** left on DXVK (153–159 ms) were the garbage collector, which this fix removes.
