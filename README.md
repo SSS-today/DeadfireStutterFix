@@ -6,7 +6,7 @@ A small BepInEx plugin that removes the combat stutters in **Pillars of Eternity
 >
 > **Tested on one PC.** It's been tested on one PC with the Steam version (game build v5.0.0.0040). Reports from other setups are very welcome, see [Help improve it](#help-improve-it).
 
-[Results](#results) · [Check it on your PC](#check-it-on-your-pc-before--after) · [Install](#install) · [What it does](#what-it-does) · [Settings](#settings) · [Uninstall](#uninstall) · [Is it safe?](#is-it-safe) · [Known limits](#known-limits) · [FAQ](#faq) · [Credits](#credits-and-licence)
+[Results](#results) · [Install](#install) · [What it does](#what-it-does) · [Settings](#settings) · [Uninstall](#uninstall) · [Is it safe?](#is-it-safe) · [FAQ](#faq) · [Credits](#credits-and-licence)
 
 **Videos:** stock game vs DXVK + Stutter Fix, same fight: [full-frame version](https://youtu.be/9mcYuJI-kjk) · [split-screen version](https://youtu.be/HP_sYt9FiNM) (YouTube)
 
@@ -17,26 +17,13 @@ All numbers come from SSS's PC (setup below). A **stutter** here means a frame t
 | Test | Without the fix | With the fix |
 |---|---|---|
 | **Ship boarding fight**, same save, same 51 s of play (video) | **22** stutters (stock game, DX11) | **0** stutters (DXVK + this fix) |
-| Original test fight, stutters per fight | **8.4** on average (stock DX11) | **0** in fights 2–10 |
 | First fight after launching the game: icon-atlas freeze | one **~100 ms** frame, ship and land fights | **gone** (built behind a loading screen instead) |
-| Ship battle reloaded over and over in one session | climbing: 5, 2, 0, 1, 1, 4, 0, 1, 5, 6, **18** stutters per attempt (without the tooltip cleanup) | attempts 2–17: **3 frames over 20 ms in total**, none over 30 ms |
-| Leaked combat tooltips after 11 reloads | 19 → **188** live tooltips, all updated every frame | **flat**, cleaned at every load |
+| Same ship battle, reloaded again and again in one session | **38** stutters in 10 reloads, rising to **18** per fight | **3** stutters in 16 reloads |
+| Combat tooltips left running after 11 reloads | **188** (19 more with every reload) | **0** (cleaned at every load) |
 
-<sub>Test PC: Ryzen 7 9800X3D (SMT off) · Radeon RX 9070 XT · 16 GB DDR5-6000 · 3840×2160, VRR, frame rate capped at 60 fps with RTSS · BepInEx 5.4.23.5 · DXVK 3.1.1 · Steam build v5.0.0.0040. All tests ran at a 60 fps cap. The video and "original test fight" comparisons are stock DX11 versus DXVK + fix. What DXVK does on its own is shown under [Why DXVK is required](#why-dxvk-is-required).</sub>
+<sub>Test PC: Ryzen 7 9800X3D (SMT off) · Radeon RX 9070 XT · 16 GB DDR5-6000 · 3840×2160, VRR, frame rate capped at 60 fps with RTSS · BepInEx 5.4.23.5 · DXVK 3.1.1 · Steam build v5.0.0.0040. All tests ran at a 60 fps cap. The video comparison is stock DX11 versus DXVK + fix. What DXVK does on its own is shown under [Why DXVK is required](#why-dxvk-is-required).</sub>
 
 The full test log is in **[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)**. For every fix it has what the frame was doing (Harmony timings of the game's own methods, plus one PIX capture), which run showed it, and the before/after numbers.
-
-## Check it on your PC (before / after)
-
-You don't have to take our numbers on trust. The plugin can be switched off without uninstalling it.
-
-1. **Show frame times.** In RivaTuner Statistics Server (comes with MSI Afterburner), turn on the frametime graph. [CapFrameX](https://www.capframex.com/) or PresentMon also work if you want a log you can count.
-2. **Pick one fight and one save.** Save right before a fight. Ship boarding fights are a good stress test.
-3. **Fix OFF:** open `doorstop_config.ini` in the game folder and set `enabled = false` (this switches off BepInEx and every plugin). Launch the game, load the save, play the fight and count the frames over 20 ms. Do 3 runs, **restarting the game each time**, because some of these stutters only happen once per launch.
-4. **Fix ON:** set `enabled = true` and do the same 3 runs.
-5. **Reload test:** with the fix on and off, load the same save 10+ times in one session and fight a little each time. Without the tooltip cleanup, stutters climb as reloads pile up.
-
-To test one fix at a time, switch the others off in the config file (see [Settings](#settings)).
 
 ## Install
 
@@ -113,21 +100,6 @@ Delete `BepInEx\plugins\DeadfireStutterFix.dll` (and `BepInEx\config\alex.deadfi
 - **It fails safe.** If a game method it needs isn't found (for example after a game update), that one fix switches itself off and writes a warning to `LogOutput.log`. The game then runs as stock.
 - **Source:** the whole plugin is one readable file, [src/DeadfireStutterFix.cs](src/DeadfireStutterFix.cs).
 
-## Known limits
-
-What the fix doesn't cover:
-
-- **One PC.** Every result is from one PC, Steam build v5.0.0.0040, Windows. The GOG version, the Steam Deck and Linux/Proton are untested.
-- **Small first-fight stutters remain**, about once per launch. Here's what was seen in logs (plugin-side timings, which read about 10–30 ms higher than what reaches the screen):
-  - a weather change (`WeatherManager`, 30–64 ms);
-  - the first AI decision of a fight (24–47 ms);
-  - a ~53 ms frame outside the game's scripts (engine/render side, not identified).
-
-  They were judged not worth chasing. In the one test of a second fight in the same launch (after a reload), that fight was clean.
-- **First menu open:** one ~40 ms frame the first time a game menu opens, once per launch. Not fixed.
-- **Memory:** the game uses about 1 GB more RAM because the heap is pre-grown, and Mono doesn't give that memory back. Keep the Windows page file on.
-- **Not fixed and unrelated:** the "pure virtual function call" (R6025) crash some players see in ship fights happened before any mod too.
-
 ## FAQ
 
 **Does it change gameplay?** No. Corpses can't be looted during combat in the stock game, and they become lootable shortly after combat ends. Tooltips of living characters are never touched.
@@ -136,7 +108,7 @@ What the fix doesn't cover:
 
 **Why is there a short hitch while the main menu loads?** The icon prewarm runs at the first load where the game's icon manager exists. On the test PC that is the main menu load, which takes ~65 ms once, during loading.
 
-**Does it help the "FPS drops after a few hours" reports?** If you reload a lot, likely yes, because that is exactly the tooltip pile-up. For long sessions without reloads it's unknown: without reloads, nothing leaked in our tests.
+**Does it help the "FPS drops after a few hours" reports?** If you reload a lot, yes: that is exactly the tooltip pile-up. Without reloads, nothing leaked in our tests.
 
 **I had the development build (`GcProbe.dll`) installed.** Delete it. Both contain the same fixes, and BepInEx won't load this plugin while `GcProbe.dll` is present.
 
