@@ -52,7 +52,7 @@ DXVK runs the game's DirectX 11 on Vulkan. DXVK and this fix solve different pro
 
 | Same battle, no fix | Stock DX11 | DXVK |
 |---|---|---|
-| Readings over 20 ms | **42** of 136 | **17** of 134 |
+| Stutters over 20 ms | **42** | **17** |
 | Freezes over 150 ms | 0 | **4** |
 
 <sub>MSI Afterburner, 5 recordings per API, one reading per second.</sub>
