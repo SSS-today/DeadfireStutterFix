@@ -27,7 +27,7 @@ The full test log is in **[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)**. For ev
 
 ## Install
 
-1. **BepInEx 5** (the Mono version for Windows x64): download the `win_x64` zip from the [BepInEx 5.4.23.5 release](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.5). Extract it into the game folder, next to `PillarsOfEternityII.exe`. Steam: right-click the game → Manage → Browse local files.
+1. **BepInEx 5** (the Mono version for Windows x64): download the `win_x64` zip from the [BepInEx 5.4.23.5 release](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.5). Extract it into the game folder, next to `PillarsOfEternityII.exe`. 
 2. **DXVK** (required, see below): download it from the [DXVK releases](https://github.com/doitsujin/dxvk/releases) and copy `d3d11.dll` and `dxgi.dll` from its `x64` folder into the game folder.
 3. **Start the game once** and quit at the main menu. BepInEx creates its folders.
 4. Download `DeadfireStutterFix.dll` from [Releases](../../releases) and put it in `BepInEx\plugins\`.
