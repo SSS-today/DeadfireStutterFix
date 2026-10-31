@@ -44,7 +44,9 @@ To test one fix at a time, switch the others off in the config file (see [Settin
 2. **DXVK** (required, see below): download it from the [DXVK releases](https://github.com/doitsujin/dxvk/releases) and copy `d3d11.dll` and `dxgi.dll` from its `x64` folder into the game folder.
 3. **Start the game once** and quit at the main menu. BepInEx creates its folders.
 4. Download `DeadfireStutterFix.dll` from [Releases](../../releases) and put it in `BepInEx\plugins\`.
-5. Play. `BepInEx\LogOutput.log` should contain a line starting with `Deadfire Stutter Fix 1.0.1`.
+5. Play.
+
+**Is it working?** Load a save: the combat log shows **"Deadfire Stutter Fix 1.0.2 active."** once per launch. If that line doesn't appear, the plugin isn't loaded: check that BepInEx is installed and the dll is in `BepInEx\plugins\`. DXVK is active when the game folder contains `PillarsOfEternityII_d3d11.log` after a launch.
 
 ### Why DXVK is required
 
@@ -97,6 +99,7 @@ Saves (autosaves on every area transition, quicksaves, manual saves) already cos
 | Fixes | `CleanCombatTooltips` | true | The reload tooltip cleanup. |
 | Fixes | `PrewarmIconAtlases` | true | The first-fight icon atlas fix. |
 | Fixes | `PrewarmAtlasNames` | SpellAbilityIcons,ItemIcons | Which atlases to prewarm. |
+| General | `ShowActiveMessage` | true | The "active" line in the combat log after the first load. |
 
 ## Uninstall
 

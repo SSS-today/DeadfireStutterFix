@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+**See that the fix is running**
+- After the first area load of a launch, the combat log shows "Deadfire Stutter Fix 1.0.2 active." (the game's own combat-log message function). Turn it off with `[General] ShowActiveMessage = false`.
+- No change to the fixes themselves.
+
 ## 1.0.1
 
 **Saves: one hitch instead of two**
