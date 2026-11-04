@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+**Skip the intro logos**
+- The game now opens straight to the main menu, without the Obsidian and publisher logos. It uses the game's own skip (the same one as pressing a key during the logos). It also shows right away that the plugin is running. Turn it off with `[General] SkipIntroLogos = false`.
+- No change to the fixes themselves.
+
 ## 1.0.2
 
 **See that the fix is running**

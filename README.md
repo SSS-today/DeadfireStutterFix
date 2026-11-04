@@ -33,7 +33,7 @@ The full test log is in **[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)**. For ev
 4. Download `DeadfireStutterFix.dll` from [Releases](../../releases) and put it in `BepInEx\plugins\`.
 5. Play.
 
-**Is it working?** Load a save: the combat log shows **"Deadfire Stutter Fix 1.0.2 active."** once per launch. If that line doesn't appear, the plugin isn't loaded: check that BepInEx is installed and the dll is in `BepInEx\plugins\`. DXVK is active when the game folder contains `PillarsOfEternityII_d3d11.log` after a launch.
+**Is it working?** The game opens straight to the main menu, **without the Obsidian logo**. After you load a save, the combat log shows **"Deadfire Stutter Fix 1.0.3 active."** If neither happens, the plugin isn't loaded: check that BepInEx is installed and the dll is in `BepInEx\plugins\`. DXVK is active when the game folder contains `PillarsOfEternityII_d3d11.log` after a launch.
 
 ### Why DXVK is required
 
@@ -87,6 +87,7 @@ Saves (autosaves on every area transition, quicksaves, manual saves) already cos
 | Fixes | `PrewarmIconAtlases` | true | The first-fight icon atlas fix. |
 | Fixes | `PrewarmAtlasNames` | SpellAbilityIcons,ItemIcons | Which atlases to prewarm. |
 | General | `ShowActiveMessage` | true | The "active" line in the combat log after the first load. |
+| General | `SkipIntroLogos` | true | Skip the logos at game start and open the main menu directly. |
 
 ## Uninstall
 
