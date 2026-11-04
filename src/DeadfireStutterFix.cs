@@ -29,7 +29,7 @@
 //    GetCircleClippedAtlas -> UIAtlas.set_spriteMaterial): one ~70-100 ms frame in the first fight. The game
 //    keeps that copy for the rest of the launch. The fix makes the same call once, behind a loading screen.
 //
-// [General] ShowActiveMessage (1.0.2): one line "Deadfire Stutter Fix 1.0.2 active." in the game's combat log after the
+// [General] ShowActiveMessage (1.0.2): one line "Deadfire Stutter Fix <version> active." in the game's combat log after the
 // first area load of a launch, so players can see the fix is running.
 
 using System;
@@ -43,10 +43,11 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-[BepInPlugin("alex.deadfirestutterfix", "Deadfire Stutter Fix", "1.0.2")]
+[BepInPlugin("alex.deadfirestutterfix", "Deadfire Stutter Fix", Version)]
 [BepInIncompatibility("alex.gcprobe")]   // the development build (GC Probe) contains the same fixes: never run both
 public class DeadfireStutterFix : BaseUnityPlugin
 {
+    public const string Version = "1.0.3";
     // Set by the game's save thread, read and cleared by Update() on the main thread.
     private static volatile bool saveFinished;
 
@@ -71,6 +72,8 @@ public class DeadfireStutterFix : BaseUnityPlugin
     private bool prewarmDone;
     private ConfigEntry<bool> showActiveMessage;
     private bool announced;
+    private ConfigEntry<bool> skipIntroLogos;
+    private static FieldInfo fSkipIntro;
 
     // Corpse-collider state (main thread only).
     private static Func<bool> inCombat;
@@ -105,8 +108,11 @@ public class DeadfireStutterFix : BaseUnityPlugin
         prewarmIcons = Config.Bind("Fixes", "PrewarmIconAtlases", true,
             "Behind a loading screen, build the circle-clipped icon atlases the game would otherwise build in the " +
             "first fight of a launch (one ~70-100 ms stutter). Once per launch.");
+        skipIntroLogos = Config.Bind("General", "SkipIntroLogos", true,
+            "Skip the Obsidian and publisher logos at game start and go straight to the main menu. Uses the game's own " +
+            "skip path (CompanyIntroductionManager.m_skipIntro). Also a quick sign that the plugin is running.");
         showActiveMessage = Config.Bind("General", "ShowActiveMessage", true,
-            "Write one line (\"Deadfire Stutter Fix 1.0.2 active.\") to the game's combat log after the first area load, " +
+            "Write one line (\"Deadfire Stutter Fix <version> active.\") to the game's combat log after the first area load, " +
             "so players can see that the fix is installed and running. Once per launch.");
         prewarmAtlasNames = Config.Bind("Fixes", "PrewarmAtlasNames", "SpellAbilityIcons,ItemIcons",
             "Comma-separated UIAtlas names to pre-build circle-clipped copies of.");
@@ -121,12 +127,13 @@ public class DeadfireStutterFix : BaseUnityPlugin
         Harmony harmony = new Harmony("alex.deadfirestutterfix");
         string save = collectOnSave.Value ? PatchSave(harmony) : "off";
         string corpses = deferColliders.Value ? PatchCorpseColliders(harmony) : "off";
+        string intro = skipIntroLogos.Value ? PatchIntro(harmony) : "off";
 
-        Logger.LogInfo("Deadfire Stutter Fix 1.0.2 | PreallocateMB=" + preallocMb.Value +
+        Logger.LogInfo("Deadfire Stutter Fix " + Version + " | PreallocateMB=" + preallocMb.Value +
                        " CollectOnLoad=" + collectOnLoad.Value + " CollectDelaySeconds=" + collectDelay.Value +
                        " CollectOnSave=" + save + " CollectInSaveFrame=" + collectInSaveFrame.Value + " DeferColliders=" + corpses +
                        " SpacingFrames=" + spacingFrames + " DelayAfterCombatFrames=" + delayAfterCombatFrames +
-                       " CleanCombatTooltips=" + cleanTooltips.Value +
+                       " CleanCombatTooltips=" + cleanTooltips.Value + " SkipIntroLogos=" + intro +
                        " PrewarmIconAtlases=" + prewarmIcons.Value + " PrewarmAtlasNames=" + prewarmAtlasNames.Value);
     }
 
@@ -296,8 +303,38 @@ public class DeadfireStutterFix : BaseUnityPlugin
         UnityEngine.Object player = pc.GetValue(null) as UnityEngine.Object;
         if (player == null) return;                                       // no party yet (main menu): try after the next load
         announced = true;
-        add.Invoke(null, new object[] { "Deadfire Stutter Fix 1.0.2 active." });
+        add.Invoke(null, new object[] { "Deadfire Stutter Fix " + Version + " active." });
         Logger.LogInfo("Active message written to the combat log.");
+    }
+
+    // ---- Optional: skip the company logos at game start --------------------------------------------
+    // CompanyIntroductionManager's intro coroutine checks m_skipIntro first: if true, it loads "MainMenu" right away
+    // (the same path the game uses when you press a key during the logos). The prefix sets that flag before Start().
+    private string PatchIntro(Harmony harmony)
+    {
+        Type t = AccessTools.TypeByName("Game.UI.CompanyIntroductionManager");
+        fSkipIntro = t != null ? AccessTools.Field(t, "m_skipIntro") : null;
+        MethodInfo start = t != null ? AccessTools.Method(t, "Start") : null;
+        if (fSkipIntro == null || fSkipIntro.FieldType != typeof(bool) || start == null)
+        {
+            Logger.LogWarning("SkipIntroLogos: intro members not found; off.");
+            return "off (not found)";
+        }
+        try
+        {
+            harmony.Patch(start, prefix: new HarmonyMethod(typeof(DeadfireStutterFix), "SkipIntroPrefix"));
+            return "on";
+        }
+        catch (Exception e)
+        {
+            Logger.LogError("SkipIntroLogos: could not hook: " + e);
+            return "off (hook failed)";
+        }
+    }
+
+    private static void SkipIntroPrefix(object __instance)
+    {
+        try { fSkipIntro.SetValue(__instance, true); } catch (Exception) { }
     }
 
     // ---- 2) Corpse click-colliders --------------------------------------------------------------
